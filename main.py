@@ -35,6 +35,9 @@ class BlinkDetector:
         return success is True
 
     def _add_to_cache(self, eye: Eye):
+        if not eye:
+            return
+
         if eye.type is Eye.Type.LEFT:
             self.last_detected_left_eye = eye
         else:
@@ -69,21 +72,25 @@ class BlinkDetector:
                 for cached_eye in self.eye_cache:
                     # if the X coord difference is less than 15 pixels to the cached eye,
                     # its probably the same eye type as cached eye
-                    x_diff = abs(coords[0] - self.last_detected_left_eye.coords[0])
+                    x_diff = abs(coords[0] - cached_eye.coords[0])
                     if x_diff < 20:
                         eye_type = cached_eye.type
 
                 # assign other eye
                 if eye_type is not Eye.Type.UNKNOWN:
-                    other_eye = self.last_detected_right_eye if eye_type is Eye.Type.RIGHT else self.last_detected_left_eye
+                    other_eye = self.last_detected_right_eye if eye_type is Eye.Type.LEFT else self.last_detected_left_eye
                     other_eye.state = Eye.State.CLOSED
 
             eye = Eye(base_image=self.img, type=eye_type, state=Eye.State.OPEN, coords=coords)
 
             self._add_to_cache(eye)
+            self._add_to_cache(other_eye)
 
     def start(self):
         success = self.refresh_video_frame()
+
+        if not success:
+            print("Camera not found. Exiting.")
 
         while success:
             success = self.refresh_video_frame()
