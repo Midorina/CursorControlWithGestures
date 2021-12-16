@@ -6,19 +6,20 @@ import numpy as np
 import drawing
 from models import Eye, Face
 
-# Initializing the face and eye cascade classifiers from xml files
+# initializing the face and eye cascade classifiers from xml files
 FACE_CASCADE = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_frontalface_default.xml')
 EYE_CASCADE = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_eye_tree_eyeglasses.xml')
 
 
 class BlinkDetector:
     def __init__(self):
+        # our capture device
         self.capture_device = None
-
+        # last captured frame
         self.img: Optional[np.ndarray] = None
 
+        # last detected objects
         self.last_detected_face: Optional[Face] = None
-
         self.last_detected_left_eye: Optional[Eye] = None
         self.last_detected_right_eye: Optional[Eye] = None
 
@@ -27,6 +28,7 @@ class BlinkDetector:
         return [x for x in (self.last_detected_left_eye, self.last_detected_right_eye) if x is not None]
 
     def refresh_video_frame(self) -> bool:
+        """Refreshes the frame."""
         if not self.capture_device:
             self.capture_device = cv2.VideoCapture(0)
 
@@ -35,6 +37,7 @@ class BlinkDetector:
         return success is True
 
     def _add_to_cache(self, eye: Eye):
+        """Adds a captured eye to the cache depending on its type."""
         if not eye:
             return
 
@@ -44,6 +47,7 @@ class BlinkDetector:
             self.last_detected_right_eye = eye
 
     def parse_eye_coords_and_update_cache(self, detected_eye_coords: List[Tuple[int, int, int, int]]) -> None:
+        """Parses the captured eye coordinates and updates the cache."""
         if len(detected_eye_coords) >= 2:  # if we managed to detect both eyes, simple algo
             if detected_eye_coords[0][0] < detected_eye_coords[1][0]:
                 left_eye = detected_eye_coords[0]
@@ -70,13 +74,13 @@ class BlinkDetector:
 
             else:
                 for cached_eye in self.eye_cache:
-                    # if the X coord difference is less than 15 pixels to the cached eye,
+                    # if the X coord difference is less than 20 pixels to the cached eye,
                     # its probably the same eye type as cached eye
                     x_diff = abs(coords[0] - cached_eye.coords[0])
                     if x_diff < 20:
                         eye_type = cached_eye.type
 
-                # assign other eye
+                # assign and update the other eye
                 if eye_type is not Eye.Type.UNKNOWN:
                     other_eye = self.last_detected_right_eye if eye_type is Eye.Type.LEFT else self.last_detected_left_eye
                     other_eye.state = Eye.State.CLOSED
@@ -87,13 +91,20 @@ class BlinkDetector:
             self._add_to_cache(other_eye)
 
     def start(self):
-        success = self.refresh_video_frame()
+        """Main loop."""
+        successful = self.refresh_video_frame()
 
-        if not success:
+        if not successful:
             print("Camera not found. Exiting.")
 
-        while success:
-            success = self.refresh_video_frame()
+        while successful:
+            successful = self.refresh_video_frame()
+
+            # flip the image (this might vary on camera device)
+            self.img = cv2.flip(
+                self.img,
+                1  # 0 = flip around x, 1 = flip around y, -1 = both
+            )
 
             gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)  # convert to grayscale
             gray = cv2.bilateralFilter(gray, 5, 1, 1)  # remove impurities
@@ -101,7 +112,12 @@ class BlinkDetector:
             # detect faces
             faces: Optional[List[Face]] = [
                 Face(self.img, coord)
-                for coord in FACE_CASCADE.detectMultiScale(gray, 1.3, 5, minSize=(200, 200))
+                for coord in FACE_CASCADE.detectMultiScale(
+                    gray,
+                    scaleFactor=1.3,  # the higher, the faster but less accurate
+                    minNeighbors=5,  # the higher, the less false positives but higher chance of missing
+                    minSize=(200, 200)
+                )
             ]
 
             if len(faces) <= 0:
@@ -125,21 +141,25 @@ class BlinkDetector:
 
                     # if we couldn't detect any new eye
                     if len(detected_eyes) <= 0:
-                        if len(self.eye_cache) <= 0:
+                        if len(self.eye_cache) <= 0:  # if the cache is empty
                             drawing.draw_text(self.img, "No eyes detected", color=drawing.Color.RED)
                         else:
+                            # update the status of eyes in the cache
                             for eye in self.eye_cache:
                                 eye.state = Eye.State.CLOSED
                     else:
-                        # parse eyes
+                        # parse new detected eyes
                         self.parse_eye_coords_and_update_cache(detected_eyes)
 
+                    # labels
                     for eye in self.eye_cache:
                         eye.draw_name(self.img, face=face)
                         eye.draw_rectangle(self.img, face=face)
 
+            # show the image
             cv2.imshow('img', self.img)
 
+            # if the user presses q, break
             if cv2.waitKey(1) == ord('q'):
                 break
 
