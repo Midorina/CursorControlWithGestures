@@ -1,6 +1,8 @@
+from time import perf_counter
 from typing import List, Optional, Tuple
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 
 import drawing
@@ -97,7 +99,18 @@ class BlinkDetector:
         if not successful:
             print("Camera not found. Exiting.")
 
+        processing_times = {
+            "filtering"     : dict(),
+            "face_detection": dict(),
+            "eye_detection" : dict(),
+            "total"         : dict()
+        }
+        frame_counter = 0
         while successful:
+            frame_counter += 1
+
+            _base_time = perf_counter()
+
             successful = self.refresh_video_frame()
 
             # flip the image (this might vary on camera device)
@@ -106,10 +119,15 @@ class BlinkDetector:
                 1  # 0 = flip around x, 1 = flip around y, -1 = both
             )
 
+            # filtering
+            _start = perf_counter()
             gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)  # convert to grayscale
             gray = cv2.bilateralFilter(gray, 5, 1, 1)  # remove impurities
+            _filtering_time = perf_counter() - _start
+            processing_times["filtering"][frame_counter] = _filtering_time
 
-            # detect faces
+            # detecting faces
+            _start = perf_counter()
             faces: Optional[List[Face]] = [
                 Face(self.img, coord)
                 for coord in FACE_CASCADE.detectMultiScale(
@@ -119,6 +137,8 @@ class BlinkDetector:
                     minSize=(200, 200)
                 )
             ]
+            _face_detection_time = perf_counter() - _start
+            processing_times["face_detection"][frame_counter] = _face_detection_time
 
             if len(faces) <= 0:
                 drawing.draw_text(
@@ -136,8 +156,11 @@ class BlinkDetector:
                     # crop the filtered image using detected face's region
                     face_region = gray[face.y:face.y + face.height, face.x:face.x + face.width]
 
+                    _start = perf_counter()
                     # detect eye coordinates
                     detected_eyes = EYE_CASCADE.detectMultiScale(face_region, 1.3, 5, minSize=(50, 50))
+                    _eye_detection_time = perf_counter() - _start
+                    processing_times["eye_detection"][frame_counter] = _eye_detection_time
 
                     # if we couldn't detect any new eye
                     if len(detected_eyes) <= 0:
@@ -159,12 +182,22 @@ class BlinkDetector:
             # show the image
             cv2.imshow('img', self.img)
 
+            _whole_loop_time = perf_counter() - _base_time
+            processing_times["total"][frame_counter] = _whole_loop_time
+
             # if the user presses q, break
             if cv2.waitKey(1) == ord('q'):
                 break
 
         self.capture_device.release()
         cv2.destroyAllWindows()
+
+        for processing_type, values in processing_times.items():
+            plt.plot(values.keys(), values.values(), label=processing_type)
+
+        plt.title("Processing Times")
+        plt.legend()
+        plt.show()
 
 
 a = BlinkDetector()
