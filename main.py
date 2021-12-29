@@ -109,9 +109,16 @@ class BlinkDetector:
         while successful:
             frame_counter += 1
 
+            # capturing frame is kept out of time frame
+            # because it is inconsistent and takes too much time compared to others
+            successful = self.refresh_video_frame()
+            # _capturing_frame_time = perf_counter() - _base_time
+            # processing_times["capturing_frame"][frame_counter] = _capturing_frame_time
+
             _base_time = perf_counter()
 
-            successful = self.refresh_video_frame()
+            # filtering
+            _start = perf_counter()
 
             # flip the image (this might vary on camera device)
             self.img = cv2.flip(
@@ -119,8 +126,6 @@ class BlinkDetector:
                 1  # 0 = flip around x, 1 = flip around y, -1 = both
             )
 
-            # filtering
-            _start = perf_counter()
             gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)  # convert to grayscale
             gray = cv2.bilateralFilter(gray, 5, 1, 1)  # remove impurities
             _filtering_time = perf_counter() - _start
@@ -192,13 +197,22 @@ class BlinkDetector:
         self.capture_device.release()
         cv2.destroyAllWindows()
 
+        # remove the first frame of face detection
+        # because it initially takes too long for some reason
+        processing_times["face_detection"].pop(1)
+        processing_times["total"].pop(1)
+
         for processing_type, values in processing_times.items():
-            plt.plot(values.keys(), values.values(), label=processing_type)
+            plt.plot(values.keys(), values.values(), label=processing_type, linewidth=1.0)
 
         plt.title("Processing Times")
+        plt.ylabel("Seconds")
+        plt.xlabel("Frames")
         plt.legend()
         plt.show()
 
+        for processing_type, values in processing_times.items():
+            print(f"Average {processing_type} processing time:", sum(values.values()) / len(values))
 
 a = BlinkDetector()
 a.start()
