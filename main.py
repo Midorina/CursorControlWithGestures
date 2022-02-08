@@ -1,12 +1,9 @@
-from time import perf_counter
 from typing import List, Optional, Tuple
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 
-import drawing
-from models import Eye, Face
+from utils import Color, Eye, Face, Timer, draw_text
 
 # initializing the face and eye cascade classifiers from xml files
 FACE_CASCADE = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_frontalface_default.xml')
@@ -24,6 +21,8 @@ class BlinkDetector:
         self.last_detected_face: Optional[Face] = None
         self.last_detected_left_eye: Optional[Eye] = None
         self.last_detected_right_eye: Optional[Eye] = None
+
+        self.timer = Timer()
 
     @property
     def eye_cache(self) -> List[Eye]:
@@ -98,13 +97,8 @@ class BlinkDetector:
 
         if not successful:
             print("Camera not found. Exiting.")
+            exit()
 
-        processing_times = {
-            "filtering"     : dict(),
-            "face_detection": dict(),
-            "eye_detection" : dict(),
-            "total"         : dict()
-        }
         frame_counter = 0
         while successful:
             frame_counter += 1
@@ -115,11 +109,8 @@ class BlinkDetector:
             # _capturing_frame_time = perf_counter() - _base_time
             # processing_times["capturing_frame"][frame_counter] = _capturing_frame_time
 
-            _base_time = perf_counter()
-
+            self.timer.start()
             # filtering
-            _start = perf_counter()
-
             # flip the image (this might vary on camera device)
             self.img = cv2.flip(
                 self.img,
@@ -128,11 +119,11 @@ class BlinkDetector:
 
             gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)  # convert to grayscale
             gray = cv2.bilateralFilter(gray, 5, 1, 1)  # remove impurities
-            _filtering_time = perf_counter() - _start
-            processing_times["filtering"][frame_counter] = _filtering_time
+
+            self.timer.capture("filtering", frame_counter)
 
             # detecting faces
-            _start = perf_counter()
+            self.timer.start()
             faces: Optional[List[Face]] = [
                 Face(self.img, coord)
                 for coord in FACE_CASCADE.detectMultiScale(
@@ -142,15 +133,14 @@ class BlinkDetector:
                     minSize=(200, 200)
                 )
             ]
-            _face_detection_time = perf_counter() - _start
-            processing_times["face_detection"][frame_counter] = _face_detection_time
+            self.timer.capture("face_detection", frame_counter)
 
             if len(faces) <= 0:
-                drawing.draw_text(
+                draw_text(
                     self.img,
                     text="No face detected",
                     coords=(100, 100),
-                    color=drawing.Color.RED)
+                    color=Color.RED)
 
             else:
                 for face in faces:
@@ -161,16 +151,16 @@ class BlinkDetector:
                     # crop the filtered image using detected face's region
                     face_region = gray[face.y:face.y + face.height, face.x:face.x + face.width]
 
-                    _start = perf_counter()
+                    self.timer.start()
+
                     # detect eye coordinates
                     detected_eyes = EYE_CASCADE.detectMultiScale(face_region, 1.3, 5, minSize=(50, 50))
-                    _eye_detection_time = perf_counter() - _start
-                    processing_times["eye_detection"][frame_counter] = _eye_detection_time
+                    self.timer.capture("eye_detection", frame_counter)
 
                     # if we couldn't detect any new eye
                     if len(detected_eyes) <= 0:
                         if len(self.eye_cache) <= 0:  # if the cache is empty
-                            drawing.draw_text(self.img, "No eyes detected", color=drawing.Color.RED)
+                            draw_text(self.img, "No eyes detected", color=Color.RED)
                         else:
                             # update the status of eyes in the cache
                             for eye in self.eye_cache:
@@ -187,8 +177,7 @@ class BlinkDetector:
             # show the image
             cv2.imshow('img', self.img)
 
-            _whole_loop_time = perf_counter() - _base_time
-            processing_times["total"][frame_counter] = _whole_loop_time
+            self.timer.capture("total", frame_counter, use_beginning=True)
 
             # if the user presses q, break
             if cv2.waitKey(1) == ord('q'):
@@ -196,23 +185,8 @@ class BlinkDetector:
 
         self.capture_device.release()
         cv2.destroyAllWindows()
+        self.timer.show_graph()
 
-        # remove the first frame of face detection
-        # because it initially takes too long for some reason
-        processing_times["face_detection"].pop(1)
-        processing_times["total"].pop(1)
-
-        for processing_type, values in processing_times.items():
-            plt.plot(values.keys(), values.values(), label=processing_type, linewidth=1.0)
-
-        plt.title("Processing Times")
-        plt.ylabel("Seconds")
-        plt.xlabel("Frames")
-        plt.legend()
-        plt.show()
-
-        for processing_type, values in processing_times.items():
-            print(f"Average {processing_type} processing time:", sum(values.values()) / len(values))
 
 a = BlinkDetector()
 a.start()

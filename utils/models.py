@@ -3,7 +3,9 @@ from typing import Tuple
 
 import numpy as np
 
-import drawing
+from utils import drawing
+
+__all__ = ['Eye', 'Face']
 
 
 class DetectedObject:
