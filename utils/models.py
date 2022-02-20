@@ -17,11 +17,11 @@ class DetectedObject:
     def coords(self) -> Tuple[int, int]:
         return self.x, self.y
 
-    def draw_name(self, img, **kwargs):
-        drawing.draw_text(img, self.__class__.__name__, (self.x + 5, self.y - 5), **kwargs)
+    async def draw_name(self, img, **kwargs):
+        await drawing.draw_text(img, self.__class__.__name__, (self.x + 5, self.y - 5), **kwargs)
 
-    def draw_rectangle(self, img, **kwargs):
-        drawing.draw_rectangle(img, self.coords, (self.x + self.width, self.y + self.height), **kwargs)
+    async def draw_rectangle(self, img, **kwargs):
+        await drawing.draw_rectangle(img, self.coords, (self.x + self.width, self.y + self.height), **kwargs)
 
 
 class Face(DetectedObject):
@@ -46,9 +46,9 @@ class Eye(DetectedObject):
         self.state = state
 
     # override
-    def draw_name(self, img, face: Face, **kwargs):
+    async def draw_name(self, img, face: Face, **kwargs):
         color = drawing.Color.RED if self.state is self.State.CLOSED else drawing.Color.GREEN
-        drawing.draw_text(
+        await drawing.draw_text(
             img,
             f"{self.type.name.title()} {self.state.name.title()}",
             (face.x + self.x + 5, face.y + self.y - 5),
@@ -56,9 +56,9 @@ class Eye(DetectedObject):
         )
 
     # override
-    def draw_rectangle(self, img, face: Face, **kwargs):
+    async def draw_rectangle(self, img, face: Face, **kwargs):
         color = drawing.Color.RED if self.state is self.State.CLOSED else drawing.Color.GREEN
-        drawing.draw_rectangle(
+        await drawing.draw_rectangle(
             img,
             (face.x + self.x, face.y + self.y),
             (face.x + self.x + self.width, face.y + self.y + self.height),

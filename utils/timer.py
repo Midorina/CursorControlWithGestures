@@ -1,3 +1,4 @@
+import logging
 from time import perf_counter
 
 import matplotlib.pyplot as plt
@@ -27,11 +28,15 @@ class Timer:
         else:
             last_time = self._last_time
 
+        passed_time = now - last_time
+
         if process_name not in self._time_data.keys():
             self._time_data[process_name] = dict()
 
-        self._time_data[process_name][frame] = now - last_time
+        self._time_data[process_name][frame] = passed_time
         self._last_time = now
+
+        logging.info(f"Process '{process_name}' took {passed_time}.")
 
     def show_graph(self):
         # remove the first frame of face detection
@@ -49,4 +54,4 @@ class Timer:
         plt.show()
 
         for processing_type, values in self._time_data.items():
-            print(f"Average {processing_type} processing time:", sum(values.values()) / len(values))
+            logging.info(f"Average {processing_type} processing time:", sum(values.values()) / len(values))
