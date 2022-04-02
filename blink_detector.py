@@ -15,6 +15,7 @@ class BlinkDetector:
     def __init__(self):
         # our capture device
         self.capture_device = None
+
         # last captured frame
         self.img: Optional[np.ndarray] = None
 
@@ -23,20 +24,31 @@ class BlinkDetector:
         self.last_detected_left_eye: Optional[Eye] = None
         self.last_detected_right_eye: Optional[Eye] = None
 
+        # timer to show graph
+        self.frame_counter = 0
         self.timer = Timer()
 
     @property
     def eye_cache(self) -> List[Eye]:
         return [x for x in (self.last_detected_left_eye, self.last_detected_right_eye) if x is not None]
 
-    def refresh_video_frame(self) -> bool:
+    def _successfully_refreshed_frame(self) -> bool:
         """Refreshes the frame."""
         if not self.capture_device:
             self.capture_device = cv2.VideoCapture(0)
 
-        success, self.img = self.capture_device.read()
+        if not self.capture_device.isOpened():
+            logging.error("Camera could not be found/opened. Exiting.")
+            self.exit()
 
-        return success is True
+        successful, self.img = self.capture_device.read()
+
+        if not successful:
+            logging.error("Could not capture any frame. Exiting.")
+            self.exit()
+
+        self.frame_counter += 1
+        return True
 
     def _add_to_cache(self, eye: Eye):
         """Adds a captured eye to the cache depending on its type."""
@@ -92,26 +104,16 @@ class BlinkDetector:
                     other_eye = self.last_detected_right_eye if eye_type is Eye.Type.LEFT else self.last_detected_left_eye
                     other_eye.state = Eye.State.CLOSED
 
-            eye = Eye(base_image=self.img, eye_type=eye_type, state=Eye.State.OPEN, coordinates=coords)
+            eye = Eye(face=face, base_image=self.img, eye_type=eye_type, state=Eye.State.OPEN, coordinates=coords)
 
             self._add_to_cache(eye)
             self._add_to_cache(other_eye)
 
     def start(self):
         """Main loop."""
-        successful = self.refresh_video_frame()
-
-        if not successful:
-            logging.error("Camera not found. Exiting.")
-            exit()
-
-        frame_counter = 0
-        while successful:
-            frame_counter += 1
-
+        while self._successfully_refreshed_frame():
             # capturing frame is kept out of time frame
             # because it is inconsistent and takes too much time compared to others
-            successful = self.refresh_video_frame()
             # _capturing_frame_time = perf_counter() - _base_time
             # processing_times["capturing_frame"][frame_counter] = _capturing_frame_time
 
@@ -126,7 +128,7 @@ class BlinkDetector:
             gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)  # convert to grayscale
             gray = cv2.bilateralFilter(gray, 5, 1, 1)  # remove impurities
 
-            self.timer.capture("filtering", frame_counter)
+            self.timer.capture("filtering", self.frame_counter)
 
             # detecting faces
             self.timer.start()
@@ -139,51 +141,51 @@ class BlinkDetector:
                     minSize=(200, 200)
                 )
             ]
-            self.timer.capture("face_detection", frame_counter)
+            self.timer.capture("face_detection", self.frame_counter)
 
             if len(faces) <= 0:
                 draw_text(
                     self.img,
                     text="No face detected",
-                    coords=(100, 100),
                     color=Color.RED)
-
             else:
-                for face in faces:
-                    # labels
-                    face.draw_name(self.img)
-                    face.draw_rectangle(self.img)
+                # use the first detected face
+                face = faces[0]
 
-                    # crop the filtered image using detected face's region
-                    face_region = gray[face.y:face.y + face.height, face.x:face.x + face.width]
+                # labels
+                face.draw_name(self.img)
+                face.draw_rectangle(self.img)
 
-                    self.timer.start()
+                # crop the filtered image using detected face's region
+                face_region = gray[face.y:face.y + face.height, face.x:face.x + face.width]
 
-                    # detect eye coordinates
-                    detected_eyes = EYE_CASCADE.detectMultiScale(face_region, 1.3, 5, minSize=(50, 50))
-                    self.timer.capture("eye_detection", frame_counter)
+                self.timer.start()
 
-                    # if we couldn't detect any new eye
-                    if len(detected_eyes) <= 0:
-                        if len(self.eye_cache) <= 0:  # if the cache is empty
-                            draw_text(self.img, "No eyes detected", color=Color.RED)
-                        else:
-                            # update the status of eyes in the cache
-                            for eye in self.eye_cache:
-                                eye.state = Eye.State.CLOSED
+                # detect eye coordinates
+                detected_eyes = EYE_CASCADE.detectMultiScale(face_region, 1.3, 5, minSize=(50, 50))
+                self.timer.capture("eye_detection", self.frame_counter)
+
+                # if we couldn't detect any new eye
+                if len(detected_eyes) <= 0:
+                    if len(self.eye_cache) <= 0:  # if the cache is empty
+                        draw_text(self.img, "No eyes detected", color=Color.RED)
                     else:
-                        # parse new detected eyes
-                        self.parse_eye_coords_and_update_cache(face, detected_eyes)
+                        # update the status of eyes in the cache
+                        for eye in self.eye_cache:
+                            eye.state = Eye.State.CLOSED
+                else:
+                    # parse new detected eyes
+                    self.parse_eye_coords_and_update_cache(face, detected_eyes)
 
-                    # labels
-                    for eye in self.eye_cache:
-                        eye.draw_name(self.img, face=face)
-                        eye.draw_rectangle(self.img, face=face)
+                # labels
+                for eye in self.eye_cache:
+                    eye.draw_name(self.img)
+                    eye.draw_rectangle(self.img)
 
             # show the image
             cv2.imshow('img', self.img)
 
-            self.timer.capture("total", frame_counter, use_beginning=True)
+            self.timer.capture("total", self.frame_counter, use_beginning=True)
 
             # if the user presses q, break
             if cv2.waitKey(1) == ord('q'):
@@ -192,3 +194,8 @@ class BlinkDetector:
         self.capture_device.release()
         cv2.destroyAllWindows()
         self.timer.show_graph()
+
+    def exit(self):
+        cv2.destroyAllWindows()
+        self.capture_device.release()
+        exit()
