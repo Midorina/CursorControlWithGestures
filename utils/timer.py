@@ -1,3 +1,4 @@
+import logging
 from time import perf_counter
 
 import matplotlib.pyplot as plt
@@ -49,4 +50,4 @@ class Timer:
         plt.show()
 
         for processing_type, values in self._time_data.items():
-            print(f"Average {processing_type} processing time:", sum(values.values()) / len(values))
+            logging.info(f"Average {processing_type} processing time: {sum(values.values()) / len(values)}")

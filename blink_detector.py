@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional, Tuple
 
 import cv2
@@ -96,7 +97,7 @@ class BlinkDetector:
         successful = self.refresh_video_frame()
 
         if not successful:
-            print("Camera not found. Exiting.")
+            logging.error("Camera not found. Exiting.")
             exit()
 
         frame_counter = 0
@@ -186,7 +187,3 @@ class BlinkDetector:
         self.capture_device.release()
         cv2.destroyAllWindows()
         self.timer.show_graph()
-
-
-a = BlinkDetector()
-a.start()
