@@ -48,7 +48,10 @@ class BlinkDetector:
         else:
             self.last_detected_right_eye = eye
 
-    def parse_eye_coords_and_update_cache(self, detected_eye_coords: List[Tuple[int, int, int, int]]) -> None:
+    def parse_eye_coords_and_update_cache(
+            self,
+            face: Face,
+            detected_eye_coords: List[Tuple[int, int, int, int]]) -> None:
         """Parses the captured eye coordinates and updates the cache."""
         if len(detected_eye_coords) >= 2:  # if we managed to detect both eyes, simple algo
             if detected_eye_coords[0][0] < detected_eye_coords[1][0]:
@@ -59,11 +62,13 @@ class BlinkDetector:
                 left_eye = detected_eye_coords[1]
 
             self.last_detected_left_eye = Eye(
-                base_image=self.img, type=Eye.Type.LEFT,
-                state=Eye.State.OPEN, coords=left_eye)
+                face=face,
+                base_image=self.img, eye_type=Eye.Type.LEFT,
+                state=Eye.State.OPEN, coordinates=left_eye)
             self.last_detected_right_eye = Eye(
-                base_image=self.img, type=Eye.Type.RIGHT,
-                state=Eye.State.OPEN, coords=right_eye)
+                face=face,
+                base_image=self.img, eye_type=Eye.Type.RIGHT,
+                state=Eye.State.OPEN, coordinates=right_eye)
 
         else:  # if not, use the latest detected eyes
             coords = detected_eye_coords[0]
@@ -78,7 +83,7 @@ class BlinkDetector:
                 for cached_eye in self.eye_cache:
                     # if the X coord difference is less than 20 pixels to the cached eye,
                     # its probably the same eye type as cached eye
-                    x_diff = abs(coords[0] - cached_eye.coords[0])
+                    x_diff = abs(coords[0] - cached_eye.coordinates[0])
                     if x_diff < 20:
                         eye_type = cached_eye.type
 
@@ -87,7 +92,7 @@ class BlinkDetector:
                     other_eye = self.last_detected_right_eye if eye_type is Eye.Type.LEFT else self.last_detected_left_eye
                     other_eye.state = Eye.State.CLOSED
 
-            eye = Eye(base_image=self.img, type=eye_type, state=Eye.State.OPEN, coords=coords)
+            eye = Eye(base_image=self.img, eye_type=eye_type, state=Eye.State.OPEN, coordinates=coords)
 
             self._add_to_cache(eye)
             self._add_to_cache(other_eye)
@@ -168,7 +173,7 @@ class BlinkDetector:
                                 eye.state = Eye.State.CLOSED
                     else:
                         # parse new detected eyes
-                        self.parse_eye_coords_and_update_cache(detected_eyes)
+                        self.parse_eye_coords_and_update_cache(face, detected_eyes)
 
                     # labels
                     for eye in self.eye_cache:
