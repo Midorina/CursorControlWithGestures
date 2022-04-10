@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 
-from utils import Color, Eye, Face, Timer, draw_text
+from utils import Color, Eye, Face, Timer, draw_text, Sensor
 
 # initializing the face and eye cascade classifiers from xml files
 FACE_CASCADE = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_frontalface_default.xml')
@@ -27,6 +27,8 @@ class BlinkDetector:
         # timer to show graph
         self.frame_counter = 0
         self.timer = Timer()
+
+        self.sensor = Sensor()
 
     @property
     def eye_cache(self) -> List[Eye]:
@@ -111,6 +113,10 @@ class BlinkDetector:
 
     def start(self):
         """Main loop."""
+
+        self.sensor.connect()
+        self.sensor.start_acc_capturing()
+
         while self._successfully_refreshed_frame():
             # capturing frame is kept out of time frame
             # because it is inconsistent and takes too much time compared to others
@@ -196,6 +202,9 @@ class BlinkDetector:
         self.timer.show_graph()
 
     def exit(self):
+        self.sensor.stop_acc_capturing()
+        self.sensor.disconnect()
+
         cv2.destroyAllWindows()
         self.capture_device.release()
         exit()
