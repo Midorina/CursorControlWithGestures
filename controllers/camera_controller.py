@@ -1,18 +1,21 @@
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Callable
 
 import cv2
 import numpy as np
 
-from utils import Color, Eye, Face, Timer, draw_text, Sensor
+from models import Eye, Face
+from utils import Color, Timer, draw_text
 
 # initializing the face and eye cascade classifiers from xml files
 FACE_CASCADE = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_frontalface_default.xml')
 EYE_CASCADE = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_eye_tree_eyeglasses.xml')
 
+__all__ = ['CameraController']
 
-class BlinkDetector:
-    def __init__(self):
+
+class CameraController:
+    def __init__(self, eye_callback: Callable):
         # our capture device
         self.capture_device = None
 
@@ -28,7 +31,8 @@ class BlinkDetector:
         self.frame_counter = 0
         self.timer = Timer()
 
-        self.sensor = Sensor()
+        # callback
+        self.callback = eye_callback
 
     @property
     def eye_cache(self) -> List[Eye]:
@@ -41,13 +45,13 @@ class BlinkDetector:
 
         if not self.capture_device.isOpened():
             logging.error("Camera could not be found/opened. Exiting.")
-            self.exit()
+            self.stop()
 
         successful, self.img = self.capture_device.read()
 
         if not successful:
             logging.error("Could not capture any frame. Exiting.")
-            self.exit()
+            self.stop()
 
         self.frame_counter += 1
         return True
@@ -111,12 +115,11 @@ class BlinkDetector:
             self._add_to_cache(eye)
             self._add_to_cache(other_eye)
 
-    def start(self):
+        # callback
+        self.callback(self.last_detected_left_eye, self.last_detected_right_eye)
+
+    def start_capturing(self):
         """Main loop."""
-
-        self.sensor.connect()
-        self.sensor.start_acc_capturing()
-
         while self._successfully_refreshed_frame():
             # capturing frame is kept out of time frame
             # because it is inconsistent and takes too much time compared to others
@@ -197,14 +200,9 @@ class BlinkDetector:
             if cv2.waitKey(1) == ord('q'):
                 break
 
-        self.capture_device.release()
+        self.stop()
+
+    def stop(self):
         cv2.destroyAllWindows()
+        self.capture_device.release()
         self.timer.show_graph()
-
-    def exit(self):
-        self.sensor.stop_acc_capturing()
-        self.sensor.disconnect()
-
-        cv2.destroyAllWindows()
-        self.capture_device.release()
-        exit()
