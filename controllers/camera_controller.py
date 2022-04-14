@@ -126,7 +126,7 @@ class CameraController:
             # _capturing_frame_time = perf_counter() - _base_time
             # processing_times["capturing_frame"][frame_counter] = _capturing_frame_time
 
-            self.timer.start()
+            self.timer.start(set_beginning=True)
             # filtering
             # flip the image (this might vary on camera device)
             self.img = cv2.flip(
@@ -191,10 +191,10 @@ class CameraController:
                     eye.draw_name(self.img)
                     eye.draw_rectangle(self.img)
 
+            self.timer.capture("total", self.frame_counter, use_beginning=True)
+
             # show the image
             cv2.imshow('img', self.img)
-
-            self.timer.capture("total", self.frame_counter, use_beginning=True)
 
             # if the user presses q, break
             if cv2.waitKey(1) == ord('q'):

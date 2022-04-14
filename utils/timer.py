@@ -13,9 +13,9 @@ class Timer:
 
         self._time_data = dict()
 
-    def start(self):
+    def start(self, set_beginning: bool = False):
         self._last_time = perf_counter()
-        if not self._beginning:
+        if not self._beginning or set_beginning:
             self._beginning = self._last_time
 
     def capture(self, process_name: str, frame: int, use_beginning: bool = False):
