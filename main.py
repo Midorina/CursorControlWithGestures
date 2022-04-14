@@ -4,7 +4,7 @@ from controllers import SensorController, CameraController
 from models import Cursor, Eye
 
 SENSOR_ADDRESS = "FA:49:1B:40:C1:DF"
-SENSOR_DEADZONE = 100
+SENSOR_DEADZONE = 75
 SENSOR_SENSITIVITY = 15  # 1-1000 (the lower, the faster)
 
 
@@ -16,10 +16,19 @@ class MainController(object):
         # TODO: use the center of the screen instead
         self.cursor = Cursor().get_with_current()
 
+        # used to calibrate first position
+        self.first_x = self.first_y = None
+
     def sensor_data_handler(self, x: float, y: float):
         # make them int
         x_pos = x * 1000
         y_pos = y * -1000  # invert y
+
+        if self.first_x is None:
+            self.first_x, self.first_y = x_pos, y_pos
+        else:
+            x_pos -= self.first_x
+            y_pos -= self.first_y
 
         # dead-zone
         x_pos = 0 if -SENSOR_DEADZONE < x_pos < SENSOR_DEADZONE else x_pos
