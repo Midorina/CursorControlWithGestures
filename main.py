@@ -15,8 +15,7 @@ class MainController(object):
         self.sensor: SensorController = SensorController(address=SENSOR_ADDRESS, acc_callback=self.sensor_data_handler)
         self.camera: CameraController = CameraController(eye_callback=self.camera_data_handler)
 
-        # TODO: use the center of the screen instead
-        self.cursor: Cursor = Cursor().get_with_current()
+        self.cursor: Cursor = Cursor(use_center_as_starting_point=True, allow_external_movement=True)
 
         # used to calibrate first position
         self.first_x: Optional[int] = None
@@ -54,7 +53,9 @@ class MainController(object):
 
     def camera_data_handler(self, eyes: List[Eye]) -> None:
         for eye in eyes:
-            # FIXME: unknown eye type
+            if eye.type == Eye.Type.UNKNOWN:
+                continue  # FIXME: unknown eye type
+
             before = self.last_eye_states[eye.type][eye.state]
             now = datetime.now()
 

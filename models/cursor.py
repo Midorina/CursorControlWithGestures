@@ -1,27 +1,26 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import Tuple
 
-import win32api
-import win32con
 
-__all__ = ['Cursor']
+class AbstractCursor(ABC):
+    def __init__(
+            self,
+            x: int = 0, y: int = 0,
+            allow_external_movement: bool = True,
+            use_center_as_starting_point: bool = True) -> None:
+        # starting point
+        if use_center_as_starting_point is True:
+            w, h = self.get_screen_size()
+            self._x, self._y = w // 2, h // 2
+        else:
+            self._x, self._y = x, y
 
-
-class Cursor(object):
-    def __init__(self, x: int = 0, y: int = 0, use_latest_coords_from_windows: bool = True) -> None:
-        self._x: int = x
-        self._y: int = y
-
-        # this option fetches the latest coordinates
-        # each time we want to move the cursor.
-        # this allows us to continue
-        # wherever the cursor is dropped on by external sources.
-        self.use_latest_coords_from_windows = use_latest_coords_from_windows
-
-    @classmethod
-    def get_with_current(cls) -> Cursor:
-        return cls(*cls.get_current_pos())
+        # if this is option is true,
+        # we fetch the latest coordinates each time the cursor needs to move.
+        # this allows us to continue wherever the cursor is dropped on by external sources.
+        self.allow_external_movement = allow_external_movement
 
     @property
     def x(self) -> int:
@@ -32,72 +31,74 @@ class Cursor(object):
         return self._y
 
     @x.setter
-    def x(self, new_x: int = 0):
+    def x(self, new_x: int = 0) -> None:
         if self.x == new_x:
             return
 
         self._x = new_x
-        self._update_pos()
+        self.update_pos()
 
     @y.setter
-    def y(self, new_y: int = 0):
+    def y(self, new_y: int = 0) -> None:
         if self.y == new_y:
             return
 
-        if self.use_latest_coords_from_windows:
-            self._update_coords_from_windows()
-
         self._y = new_y
-        self._update_pos()
+        self.update_pos()
 
-    def move_in_y_axis(self, magnitude: int = 1):
-        if self.use_latest_coords_from_windows:
-            self._update_coords_from_windows()
+    def move_in_y_axis(self, magnitude: int = 1) -> int:
+        if self.allow_external_movement:
+            self._update_coords_from_os()
 
         self.y += int(magnitude)
 
-    def move_in_x_axis(self, magnitude: int = 1):
-        if self.use_latest_coords_from_windows:
-            self._update_coords_from_windows()
+        return self.y
+
+    def move_in_x_axis(self, magnitude: int = 1) -> int:
+        if self.allow_external_movement:
+            self._update_coords_from_os()
 
         self.x += int(magnitude)
 
-    @staticmethod
-    def left_click():
-        Cursor.press_left_click()
-        Cursor.release_left_click()
+        return self.x
 
-    @staticmethod
-    def right_click():
-        Cursor.press_right_click()
-        Cursor.release_right_click()
+    def left_click(self) -> None:
+        self.press_left_click()
+        self.release_left_click()
 
-    @staticmethod
-    def press_left_click():
-        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0)
+    def right_click(self) -> None:
+        self.press_right_click()
+        self.release_right_click()
 
-    @staticmethod
-    def release_left_click():
-        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0)
-
-    @staticmethod
-    def press_right_click():
-        win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTDOWN, 0, 0)
-
-    @staticmethod
-    def release_right_click():
-        win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0)
-
-    @staticmethod
-    def get_current_pos() -> Tuple[int, int]:
-        return win32api.GetCursorPos()
-
-    def _update_pos(self) -> None:
-        win32api.SetCursorPos((self.x, self.y))
-
+    def _update_coords_from_os(self) -> None:
         # this is useful if we're getting out of bounds
         # or if the cursor was moved externally
-        self._update_coords_from_windows()
+        self._x, self._y = self.get_current_pos()
 
-    def _update_coords_from_windows(self) -> None:
-        self._x, self._y = Cursor.get_current_pos()
+    @abstractmethod
+    def get_screen_size(self) -> Tuple[int, int]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_current_pos(self) -> Tuple[int, int]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def press_left_click(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def release_left_click(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def press_right_click(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def release_right_click(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_pos(self) -> None:
+        raise NotImplementedError
