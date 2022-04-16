@@ -5,8 +5,8 @@ from controllers import CameraController, SensorController
 from models import Cursor, Eye
 
 SENSOR_ADDRESS = "FA:49:1B:40:C1:DF"
-SENSOR_DEADZONE = 20
-SENSOR_SENSITIVITY = 20  # 1-1000 (the lower, the faster)
+SENSOR_DEADZONE = 45
+SENSOR_SENSITIVITY = 7  # 1-1000 (the lower, the slower)
 BLINK_THRESHOLD_MS = 200
 
 
@@ -45,9 +45,9 @@ class MainController(object):
             x_pos -= self.first_x
             y_pos -= self.first_y
 
-        # dead-zone
-        x_pos = 0 if -SENSOR_DEADZONE < x_pos < SENSOR_DEADZONE else x_pos
-        y_pos = 0 if -SENSOR_DEADZONE < y_pos < SENSOR_DEADZONE else y_pos
+        # dead-zone check
+        x_pos = 0 if -SENSOR_DEADZONE < x_pos < SENSOR_DEADZONE else x_pos - SENSOR_DEADZONE
+        y_pos = 0 if -SENSOR_DEADZONE < y_pos < SENSOR_DEADZONE else y_pos - SENSOR_DEADZONE
 
         self.cursor.move_in_x_axis(x_pos // (1000 // SENSOR_SENSITIVITY))
         self.cursor.move_in_y_axis(y_pos // (1000 // SENSOR_SENSITIVITY))

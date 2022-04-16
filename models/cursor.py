@@ -33,26 +33,33 @@ class Cursor(object):
 
     @x.setter
     def x(self, new_x: int = 0):
-        if self.use_latest_coords_from_windows:
-            self._update_coords_from_windows()
+        if self.x == new_x:
+            return
 
-        if self.x != new_x:
-            self._x = new_x
-            self._update_pos()
+        self._x = new_x
+        self._update_pos()
 
     @y.setter
     def y(self, new_y: int = 0):
+        if self.y == new_y:
+            return
+
         if self.use_latest_coords_from_windows:
             self._update_coords_from_windows()
 
-        if self.y != new_y:
-            self._y = new_y
-            self._update_pos()
+        self._y = new_y
+        self._update_pos()
 
     def move_in_y_axis(self, magnitude: int = 1):
+        if self.use_latest_coords_from_windows:
+            self._update_coords_from_windows()
+
         self.y += int(magnitude)
 
     def move_in_x_axis(self, magnitude: int = 1):
+        if self.use_latest_coords_from_windows:
+            self._update_coords_from_windows()
+
         self.x += int(magnitude)
 
     @staticmethod
