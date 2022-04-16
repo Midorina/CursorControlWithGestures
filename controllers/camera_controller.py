@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Tuple, Callable
+from typing import Callable, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -8,8 +8,8 @@ from models import Eye, Face
 from utils import Color, Timer, draw_text
 
 # initializing the face and eye cascade classifiers from xml files
-FACE_CASCADE = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_frontalface_default.xml')
-EYE_CASCADE = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_eye_tree_eyeglasses.xml')
+FACE_CASCADE = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+EYE_CASCADE = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye_tree_eyeglasses.xml')
 
 __all__ = ['CameraController']
 
@@ -23,9 +23,11 @@ class CameraController:
         self.img: Optional[np.ndarray] = None
 
         # last detected objects
-        self.last_detected_face: Optional[Face] = None
-        self.last_detected_left_eye: Optional[Eye] = None
-        self.last_detected_right_eye: Optional[Eye] = None
+        # self.last_detected_face: Optional[Face] = None
+        self.eye_cache: Dict[Eye.Type, Optional[Eye]] = {
+            Eye.Type.LEFT : None,
+            Eye.Type.RIGHT: None,
+        }
 
         # timer to show graph
         self.frame_counter = 0
@@ -35,8 +37,8 @@ class CameraController:
         self.callback = eye_callback
 
     @property
-    def eye_cache(self) -> List[Eye]:
-        return [x for x in (self.last_detected_left_eye, self.last_detected_right_eye) if x is not None]
+    def detected_eyes(self) -> List[Eye]:
+        return [x for x in self.eye_cache.values() if x is not None]
 
     def _successfully_refreshed_frame(self) -> bool:
         """Refreshes the frame."""
@@ -56,15 +58,13 @@ class CameraController:
         self.frame_counter += 1
         return True
 
-    def _add_to_cache(self, eye: Eye):
+    def _add_to_cache(self, *eyes: Eye):
         """Adds a captured eye to the cache depending on its type."""
-        if not eye:
-            return
+        for eye in eyes:
+            if eye is None:
+                return
 
-        if eye.type is Eye.Type.LEFT:
-            self.last_detected_left_eye = eye
-        else:
-            self.last_detected_right_eye = eye
+            self.eye_cache[eye.type] = eye
 
     def parse_eye_coords_and_update_cache(
             self,
@@ -79,44 +79,40 @@ class CameraController:
                 right_eye = detected_eye_coords[0]
                 left_eye = detected_eye_coords[1]
 
-            self.last_detected_left_eye = Eye(
-                face=face,
-                base_image=self.img, eye_type=Eye.Type.LEFT,
-                state=Eye.State.OPEN, coordinates=left_eye)
-            self.last_detected_right_eye = Eye(
-                face=face,
-                base_image=self.img, eye_type=Eye.Type.RIGHT,
-                state=Eye.State.OPEN, coordinates=right_eye)
+            self._add_to_cache(
+                Eye(face=face, base_image=self.img, eye_type=Eye.Type.LEFT,
+                    state=Eye.State.OPEN, coordinates=left_eye),
+                Eye(face=face, base_image=self.img, eye_type=Eye.Type.RIGHT,
+                    state=Eye.State.OPEN, coordinates=right_eye))
 
         else:  # if not, use the latest detected eyes
             coords = detected_eye_coords[0]
             eye_type = Eye.Type.UNKNOWN
             other_eye: Optional[Eye] = None
 
-            # if we dont have any previously detected eyes, return unknown
-            if not self.last_detected_right_eye and not self.last_detected_left_eye:
+            # if we don't have any previously detected eyes, return unknown
+            if not self.detected_eyes:
                 eye_type = Eye.Type.UNKNOWN
 
             else:
-                for cached_eye in self.eye_cache:
+                for cached_eye in self.detected_eyes:
                     # if the X coord difference is less than 20 pixels to the cached eye,
                     # its probably the same eye type as cached eye
                     x_diff = abs(coords[0] - cached_eye.coordinates[0])
-                    if x_diff < 20:
+                    if x_diff < 25:
                         eye_type = cached_eye.type
 
                 # assign and update the other eye
                 if eye_type is not Eye.Type.UNKNOWN:
-                    other_eye = self.last_detected_right_eye if eye_type is Eye.Type.LEFT else self.last_detected_left_eye
+                    other_eye = self.eye_cache[eye_type.get_opposite()]
                     other_eye.state = Eye.State.CLOSED
 
             eye = Eye(face=face, base_image=self.img, eye_type=eye_type, state=Eye.State.OPEN, coordinates=coords)
 
-            self._add_to_cache(eye)
-            self._add_to_cache(other_eye)
+            self._add_to_cache(eye, other_eye)
 
         # callback
-        self.callback(self.last_detected_left_eye, self.last_detected_right_eye)
+        self.callback(self.detected_eyes)
 
     def start_capturing(self):
         """Main loop."""
@@ -176,18 +172,18 @@ class CameraController:
 
                 # if we couldn't detect any new eye
                 if len(detected_eyes) <= 0:
-                    if len(self.eye_cache) <= 0:  # if the cache is empty
+                    if len(self.detected_eyes) <= 0:  # if the cache is empty
                         draw_text(self.img, "No eyes detected", color=Color.RED)
                     else:
                         # update the status of eyes in the cache
-                        for eye in self.eye_cache:
+                        for eye in self.detected_eyes:
                             eye.state = Eye.State.CLOSED
                 else:
                     # parse new detected eyes
                     self.parse_eye_coords_and_update_cache(face, detected_eyes)
 
                 # labels
-                for eye in self.eye_cache:
+                for eye in self.detected_eyes:
                     eye.draw_name(self.img)
                     eye.draw_rectangle(self.img)
 

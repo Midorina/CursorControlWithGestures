@@ -1,4 +1,6 @@
-from enum import Enum, auto
+from __future__ import annotations
+
+from enum import Enum
 from typing import Tuple
 
 import numpy as np
@@ -31,13 +33,22 @@ class Face(DetectedObject):
 
 class Eye(DetectedObject):
     class Type(Enum):
-        LEFT = auto()
-        RIGHT = auto()
-        UNKNOWN = auto()
+        UNKNOWN = -1
+        LEFT = 0
+        RIGHT = 1
+
+        def get_opposite(self) -> Eye.Type:
+            if self == Eye.Type.UNKNOWN:
+                raise Exception("No opposite of unknown eye type.")
+
+            return Eye.Type(abs(self.value - 1))
 
     class State(Enum):
         CLOSED = 0
         OPEN = 1
+
+        def get_opposite(self) -> Eye.State:
+            return Eye.State(abs(self.value - 1))
 
     def __init__(self, base_image, face: Face, eye_type: Type, state: State, coordinates):
         super(Eye, self).__init__(base_image, coordinates)

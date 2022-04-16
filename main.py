@@ -1,25 +1,40 @@
-from typing import Optional
+from datetime import datetime
+from typing import Dict, List, Optional
 
-from controllers import SensorController, CameraController
+from controllers import CameraController, SensorController
 from models import Cursor, Eye
 
 SENSOR_ADDRESS = "FA:49:1B:40:C1:DF"
-SENSOR_DEADZONE = 75
-SENSOR_SENSITIVITY = 15  # 1-1000 (the lower, the faster)
+SENSOR_DEADZONE = 20
+SENSOR_SENSITIVITY = 20  # 1-1000 (the lower, the faster)
+BLINK_THRESHOLD_MS = 200
 
 
 class MainController(object):
-    def __init__(self):
-        self.sensor = SensorController(address=SENSOR_ADDRESS, acc_callback=self.sensor_data_handler)
-        self.camera = CameraController(eye_callback=self.camera_data_handler)
+    def __init__(self) -> None:
+        self.sensor: SensorController = SensorController(address=SENSOR_ADDRESS, acc_callback=self.sensor_data_handler)
+        self.camera: CameraController = CameraController(eye_callback=self.camera_data_handler)
 
         # TODO: use the center of the screen instead
-        self.cursor = Cursor().get_with_current()
+        self.cursor: Cursor = Cursor().get_with_current()
 
         # used to calibrate first position
-        self.first_x = self.first_y = None
+        self.first_x: Optional[int] = None
+        self.first_y: Optional[int] = None
 
-    def sensor_data_handler(self, x: float, y: float):
+        # used to get rid of false positives
+        self.last_eye_states: Dict[Eye.Type, Dict[Eye.State, Optional[datetime]]] = {
+            Eye.Type.LEFT : {
+                Eye.State.OPEN  : None,
+                Eye.State.CLOSED: None
+            },
+            Eye.Type.RIGHT: {
+                Eye.State.OPEN  : None,
+                Eye.State.CLOSED: None
+            },
+        }
+
+    def sensor_data_handler(self, x: float, y: float) -> None:
         # make them int
         x_pos = x * 1000
         y_pos = y * -1000  # invert y
@@ -37,21 +52,37 @@ class MainController(object):
         self.cursor.move_in_x_axis(x_pos // (1000 // SENSOR_SENSITIVITY))
         self.cursor.move_in_y_axis(y_pos // (1000 // SENSOR_SENSITIVITY))
 
-    def camera_data_handler(self, left_eye: Optional[Eye], right_eye: Optional[Eye]):
-        # TODO: advanced click logic
-        # if left_eye.state == Eye.State.CLOSED:
-        #     self.cursor.press_left_click()
-        # else:
-        #     self.cursor.release_left_click()
-        #
-        # if right_eye.state == Eye.State.CLOSED:
-        #     self.cursor.press_right_click()
-        # else:
-        #     self.cursor.release_right_click()
-        return
+    def camera_data_handler(self, eyes: List[Eye]) -> None:
+        for eye in eyes:
+            # FIXME: unknown eye type
+            before = self.last_eye_states[eye.type][eye.state]
+            now = datetime.now()
 
-    def blink_handler(self):
-        self.cursor.left_click()
+            # if we have never received this eye before, just set and continue
+            if before is None:
+                self.last_eye_states[eye.type][eye.state] = now
+                continue
+
+            # threshold check
+            diff_in_ms = (now - before).total_seconds() * 1000
+            if diff_in_ms >= BLINK_THRESHOLD_MS:
+                # reset other state
+                self.last_eye_states[eye.type][eye.state.get_opposite()] = None
+                # blink
+                self.blink_handler(eye)
+
+    def blink_handler(self, eye: Eye) -> None:
+        if eye.type == Eye.Type.LEFT:
+            press_function = self.cursor.press_left_click
+            release_function = self.cursor.release_left_click
+        else:
+            press_function = self.cursor.press_right_click
+            release_function = self.cursor.release_right_click
+
+        if eye.state == Eye.State.CLOSED:
+            press_function()
+        else:
+            release_function()
 
     def run(self):
         self.sensor.connect()
