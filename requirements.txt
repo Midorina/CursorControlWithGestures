@@ -4,3 +4,5 @@ matplotlib~=3.5.1
 metawear~=1.0.6
 pywin32~=303;platform_system=="Windows"
 python3-Xlib;platform_system=="Linux"
+cmake~=3.22.3
+dlib~=19.23.1

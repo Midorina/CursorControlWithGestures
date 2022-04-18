@@ -11,10 +11,10 @@ from utils import Color, Timer, draw_text
 FACE_CASCADE = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 EYE_CASCADE = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye_tree_eyeglasses.xml')
 
-__all__ = ['CameraController']
+__all__ = ['CameraControllerHaar']
 
 
-class CameraController:
+class CameraControllerHaar:
     def __init__(self, eye_callback: Callable):
         # our capture device
         self.capture_device = None
@@ -158,11 +158,11 @@ class CameraController:
                 face = faces[0]
 
                 # labels
-                face.draw_name(self.img)
-                face.draw_rectangle(self.img)
+                face.draw_name()
+                face.draw_rectangle()
 
                 # crop the filtered image using detected face's region
-                face_region = gray[face.y:face.y + face.height, face.x:face.x + face.width]
+                face_region = gray[face.y1:face.y1 + face.y2, face.x1:face.x1 + face.x2]
 
                 self.timer.start()
 
@@ -184,8 +184,8 @@ class CameraController:
 
                 # labels
                 for eye in self.detected_eyes:
-                    eye.draw_name(self.img)
-                    eye.draw_rectangle(self.img)
+                    eye.draw_name()
+                    eye.draw_rectangle()
 
             self.timer.capture("total", self.frame_counter, use_beginning=True)
 

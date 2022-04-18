@@ -31,3 +31,11 @@ def draw_rectangle(img,
                    color: Color = Color.GREEN,
                    thickness: int = 2):
     cv2.rectangle(img, left_top_coords, right_bottom_coords, color.value, thickness)
+
+
+def draw_point(img,
+               coords: Tuple[int, int],
+               radius: int = 2,
+               color: Color = Color.GREEN,
+               thickness: int = 2):
+    cv2.circle(img, coords, radius, color.value, thickness)
