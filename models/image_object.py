@@ -134,7 +134,7 @@ class Eye(DetectedObject):
             )
 
     @functools.cached_property
-    def state(self) -> Eye.State:
+    def closeness_ratio(self) -> float:
         def euclidean_distance(point1: Tuple[int, int], point2: Tuple[int, int]):
             return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
@@ -149,4 +149,10 @@ class Eye(DetectedObject):
         horizontal_length = euclidean_distance(left_corner, right_corner)
         vertical_length = euclidean_distance(top_center, bottom_center)
 
-        return Eye.State.CLOSED if horizontal_length / vertical_length > self.state_threshold else Eye.State.OPEN
+        ratio = horizontal_length / vertical_length
+
+        return ratio
+
+    @property
+    def state(self) -> Eye.State:
+        return Eye.State.CLOSED if self.closeness_ratio > self.state_threshold else Eye.State.OPEN

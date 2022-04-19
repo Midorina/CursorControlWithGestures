@@ -110,7 +110,7 @@ class CameraControllerDlib:
 
                 # callback
                 if self.callback:
-                    self.callback([left_eye, right_eye])
+                    self.callback(left_eye, right_eye)
 
             self.timer.capture("total", self.frame_counter, use_beginning=True)
 
