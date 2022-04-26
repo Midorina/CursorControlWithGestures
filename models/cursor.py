@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from abc import ABC, abstractmethod
 from typing import Tuple
@@ -64,14 +65,23 @@ class AbstractCursor(ABC):
         return self.x
 
     def left_click(self) -> None:
+        logging.debug("Left clicking...")
         self.press_left_click()
         time.sleep(0.05)
         self.release_left_click()
 
     def right_click(self) -> None:
+        logging.debug("Right clicking...")
+
         self.press_right_click()
         time.sleep(0.05)
         self.release_right_click()
+
+    def double_left_click(self) -> None:
+        logging.debug("Double left clicking...")
+        self.left_click()
+        time.sleep(0.05)
+        self.left_click()
 
     def _update_coords_from_os(self) -> None:
         # this is useful if we're getting out of bounds

@@ -36,8 +36,8 @@ class CameraControllerDlib:
         """Refreshes the frame."""
         if not self.capture_device:
             self.capture_device = cv2.VideoCapture(0)
-            self.capture_device.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-            self.capture_device.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+            # self.capture_device.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            # self.capture_device.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
         if not self.capture_device.isOpened():
             logging.error("Camera could not be found/opened. Exiting.")
