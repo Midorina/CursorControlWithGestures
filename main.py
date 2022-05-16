@@ -4,15 +4,19 @@ from typing import Dict, List, Optional, Tuple
 
 from controllers import CameraControllerDlib, SensorController
 from models import Cursor, Eye
+from utils import TemporaryText
 
 SENSOR_ADDRESS = "FA:49:1B:40:C1:DF"
 SENSOR_DEADZONE = 65
 SENSOR_SENSITIVITY = 7  # 1-1000 (the lower, the slower)
-BLINK_SHORT_THRESHOLD_MS = 120  # average blink duration is between 100 and 400 ms
+# BLINK_SHORT_THRESHOLD_MS = 135  # average blink duration is between 100 and 400 ms
+# BLINK_LONG_THRESHOLD_MS = 550
+# BLINK_DETECTION_RATIO = 6.5
+# EVENT_DETECTION_DURATION_MS = 1000
+BLINK_SHORT_THRESHOLD_MS = 90
 BLINK_LONG_THRESHOLD_MS = 550
-BLINK_DETECTION_RATIO = 6.5
-EVENT_DETECTION_DURATION_MS = 1000
-
+BLINK_DETECTION_RATIO = 5.7
+EVENT_DETECTION_DURATION_MS = 800
 
 class MainController(object):
     def __init__(self) -> None:
@@ -137,11 +141,14 @@ class MainController(object):
             if len(blinks) == 0:
                 return
             elif len(blinks) == 1:
-                self.cursor.left_click()
+                # self.cursor.left_click()
+                self.camera.add_temporary_text(TemporaryText("Single blink detected."))
             elif len(blinks) == 2:
-                self.cursor.double_left_click()
+                # self.cursor.double_left_click()
+                self.camera.add_temporary_text(TemporaryText("Double blink detected."))
             else:
-                self.cursor.right_click()
+                # self.cursor.right_click()
+                self.camera.add_temporary_text(TemporaryText("Triple or more blinks detected."))
 
         now = datetime.now()
 
@@ -163,7 +170,7 @@ class MainController(object):
 
             # and (if eyes were closed for long enough and eyes just got opened)
             if before_state == Eye.State.CLOSED and diff_in_ms > BLINK_SHORT_THRESHOLD_MS:
-                logging.debug("!!!!!!!! ADDING BLINK!!!!!!!!!!!!!!!!!")
+                logging.debug("!!!!!!!! ADDING BLINK !!!!!!!!!!!!!!!!!")
                 self.last_eye_blink_times.append(now)
                 if not self.execute_action_at:
                     self.execute_action_at = now + timedelta(milliseconds=EVENT_DETECTION_DURATION_MS)
@@ -175,13 +182,13 @@ class MainController(object):
             self.last_eye_blink_times.clear()
 
     def run(self):
-        self.sensor.connect()
-        self.sensor.start_acc_capturing()
+        # self.sensor.connect()
+        # self.sensor.start_acc_capturing()
 
         self.camera.start_capturing()
 
     def stop(self):
         self.camera.stop()
 
-        self.sensor.stop_acc_capturing()
-        self.sensor.disconnect()
+        # self.sensor.stop_acc_capturing()
+        # self.sensor.disconnect()

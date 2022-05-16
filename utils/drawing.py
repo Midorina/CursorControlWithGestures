@@ -1,9 +1,10 @@
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Tuple
 
 import cv2
 
-__all__ = ['Color', 'draw_text', 'draw_rectangle']
+__all__ = ['Color', 'draw_text', 'draw_rectangle', 'TemporaryText']
 
 
 class Color(Enum):
@@ -39,3 +40,22 @@ def draw_point(img,
                color: Color = Color.GREEN,
                thickness: int = 2):
     cv2.circle(img, coords, radius, color.value, thickness)
+
+
+class TemporaryText(object):
+    def __init__(self, text: str, duration_in_seconds: float = 1.0, color: Color = Color.BLUE):
+        self.text = text
+        self.color = color
+
+        self.duration_in_seconds = duration_in_seconds
+        self.init_time = datetime.now()
+
+    def has_expired(self) -> bool:
+        return datetime.now() > self.expiration_time
+
+    @property
+    def expiration_time(self):
+        return timedelta(seconds=self.duration_in_seconds) + self.init_time
+
+    def draw(self, img):
+        draw_text(img, self.text, color=self.color)

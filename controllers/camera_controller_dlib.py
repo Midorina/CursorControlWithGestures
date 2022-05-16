@@ -1,13 +1,13 @@
 import logging
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, List, Optional
 
 import _dlib_pybind11
 import cv2
-import numpy as np
 import dlib
+import numpy as np
 
 from models import Eye, Face
-from utils import Color, Timer, draw_text
+from utils import Color, TemporaryText, Timer, draw_text
 
 FACE_DETECTOR = dlib.get_frontal_face_detector()
 SHAPE_PREDICTOR = dlib.shape_predictor("./assets/shape_predictor_68_face_landmarks.dat")
@@ -32,12 +32,14 @@ class CameraControllerDlib:
         self.frame_counter = 0
         self.timer = Timer()
 
+        self.temporary_texts: List[TemporaryText] = []
+
     def _successfully_refreshed_frame(self) -> bool:
         """Refreshes the frame."""
         if not self.capture_device:
             self.capture_device = cv2.VideoCapture(0)
-            # self.capture_device.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            # self.capture_device.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            self.capture_device.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            self.capture_device.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
         if not self.capture_device.isOpened():
             logging.error("Camera could not be found/opened. Exiting.")
@@ -52,6 +54,17 @@ class CameraControllerDlib:
         self.frame_counter += 1
 
         return True
+
+    def draw_and_clean_temporary_texts(self):
+        expired_texts = []
+        for temporary_text in self.temporary_texts:
+            if not temporary_text.has_expired():
+                temporary_text.draw(self.img)
+            else:
+                expired_texts.append(temporary_text)
+
+        for expired in expired_texts:
+            self.temporary_texts.remove(expired)
 
     def start_capturing(self):
         """Main loop."""
@@ -69,6 +82,10 @@ class CameraControllerDlib:
                 self.img,
                 1  # 0 = flip around x, 1 = flip around y, -1 = both
             )
+
+            # draw and clean the temporary texts
+            # (has to be done after flipping)
+            self.draw_and_clean_temporary_texts()
 
             gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)  # convert to grayscale
             gray = cv2.bilateralFilter(gray, 5, 1, 1)  # remove impurities
@@ -127,3 +144,6 @@ class CameraControllerDlib:
         cv2.destroyAllWindows()
         self.capture_device.release()
         self.timer.show_graph()
+
+    def add_temporary_text(self, text: TemporaryText):
+        self.temporary_texts.append(text)
