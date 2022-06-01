@@ -9,14 +9,11 @@ from utils import TemporaryText
 SENSOR_ADDRESS = "FA:49:1B:40:C1:DF"
 SENSOR_DEADZONE = 65
 SENSOR_SENSITIVITY = 7  # 1-1000 (the lower, the slower)
-# BLINK_SHORT_THRESHOLD_MS = 135  # average blink duration is between 100 and 400 ms
-# BLINK_LONG_THRESHOLD_MS = 550
-# BLINK_DETECTION_RATIO = 6.5
-# EVENT_DETECTION_DURATION_MS = 1000
-BLINK_SHORT_THRESHOLD_MS = 90
+BLINK_SHORT_THRESHOLD_MS = 135  # average blink duration is between 100 and 400 ms
 BLINK_LONG_THRESHOLD_MS = 550
-BLINK_DETECTION_RATIO = 5.7
-EVENT_DETECTION_DURATION_MS = 800
+BLINK_DETECTION_RATIO = 6.5
+EVENT_DETECTION_DURATION_MS = 1000
+
 
 class MainController(object):
     def __init__(self) -> None:
@@ -135,8 +132,8 @@ class MainController(object):
     def event_driven_double_blink_algorithm(self, left_eye: Eye, right_eye: Eye) -> None:
         def decide_action_and_execute():
             # get up to last four blinks which happened in our interval
-            blinks = [i for i in self.last_eye_blink_times[-4:] if i if
-                      i >= datetime.now() - timedelta(milliseconds=EVENT_DETECTION_DURATION_MS * 1.15)]
+            print(len(self.last_eye_blink_times))
+            blinks = self.last_eye_blink_times
 
             if len(blinks) == 0:
                 return
@@ -155,7 +152,7 @@ class MainController(object):
         # threshold check
         ratio = (left_eye.closeness_ratio + right_eye.closeness_ratio) / 2
         current_state: Eye.State = Eye.State.CLOSED if ratio > BLINK_DETECTION_RATIO else Eye.State.OPEN
-        logging.debug(ratio)
+        # logging.debug(ratio)
 
         # if we have never received a state before, just set and return
         if self.last_both_eyes_state is None:
@@ -170,10 +167,12 @@ class MainController(object):
 
             # and (if eyes were closed for long enough and eyes just got opened)
             if before_state == Eye.State.CLOSED and diff_in_ms > BLINK_SHORT_THRESHOLD_MS:
-                logging.debug("!!!!!!!! ADDING BLINK !!!!!!!!!!!!!!!!!")
+                logging.debug("Adding blink.")
                 self.last_eye_blink_times.append(now)
                 if not self.execute_action_at:
                     self.execute_action_at = now + timedelta(milliseconds=EVENT_DETECTION_DURATION_MS)
+                else:
+                    self.execute_action_at += timedelta(milliseconds=EVENT_DETECTION_DURATION_MS / 1.5)
 
         if self.execute_action_at and self.execute_action_at < now:
             decide_action_and_execute()
