@@ -131,20 +131,16 @@ class MainController(object):
 
     def event_driven_double_blink_algorithm(self, left_eye: Eye, right_eye: Eye) -> None:
         def decide_action_and_execute():
-            # get up to last four blinks which happened in our interval
-            print(len(self.last_eye_blink_times))
-            blinks = self.last_eye_blink_times
-
-            if len(blinks) == 0:
+            if len(self.last_eye_blink_times) == 0:
                 return
-            elif len(blinks) == 1:
-                # self.cursor.left_click()
+            elif len(self.last_eye_blink_times) == 1:
+                self.cursor.left_click()
                 self.camera.add_temporary_text(TemporaryText("Single blink detected."))
-            elif len(blinks) == 2:
-                # self.cursor.double_left_click()
+            elif len(self.last_eye_blink_times) == 2:
+                self.cursor.double_left_click()
                 self.camera.add_temporary_text(TemporaryText("Double blink detected."))
             else:
-                # self.cursor.right_click()
+                self.cursor.right_click()
                 self.camera.add_temporary_text(TemporaryText("Triple or more blinks detected."))
 
         now = datetime.now()
@@ -181,13 +177,13 @@ class MainController(object):
             self.last_eye_blink_times.clear()
 
     def run(self):
-        # self.sensor.connect()
-        # self.sensor.start_acc_capturing()
+        self.sensor.connect()
+        self.sensor.start_acc_capturing()
 
         self.camera.start_capturing()
 
     def stop(self):
         self.camera.stop()
 
-        # self.sensor.stop_acc_capturing()
-        # self.sensor.disconnect()
+        self.sensor.stop_acc_capturing()
+        self.sensor.disconnect()
