@@ -30,3 +30,6 @@ class WindowsCursor(AbstractCursor):
 
     def update_pos(self) -> None:
         win32api.SetCursorPos((self.x, self.y))
+
+    def key_is_pressed(self, key: str):
+        return win32api.GetAsyncKeyState(ord(key)) != 0

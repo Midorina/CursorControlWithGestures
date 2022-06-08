@@ -1,6 +1,9 @@
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
+import threading
+import cv2
 
 from controllers import CameraControllerDlib, SensorController
 from models import Cursor, Eye
@@ -44,6 +47,20 @@ class MainController(object):
         self.last_eye_blink_times: List[datetime] = []
         self.execute_action_at: Optional[datetime] = None
 
+        self.key_scan_thread = threading.Thread(target=self.check_reset_input)
+
+    def _reset_sensor_calibration_callback(self):
+        self.first_x = self.first_y = None
+
+    def check_reset_input(self):
+        logging.info('Starting input scan.')
+        while True:
+            if self.cursor.key_is_pressed('R'):
+                logging.info('Resetting sensor calibration.')
+                self._reset_sensor_calibration_callback()
+
+            time.sleep(0.1)
+
     def sensor_data_handler(self, x: float, y: float) -> None:
         # make them int
         x_pos = x * 1000
@@ -51,9 +68,9 @@ class MainController(object):
 
         if self.first_x is None:
             self.first_x, self.first_y = x_pos, y_pos
-        else:
-            x_pos -= self.first_x
-            y_pos -= self.first_y
+
+        x_pos -= self.first_x
+        y_pos -= self.first_y
 
         # dead-zone check
         x_pos = 0 if -SENSOR_DEADZONE < x_pos < SENSOR_DEADZONE else (x_pos - SENSOR_DEADZONE if x_pos > 0 else x_pos + SENSOR_DEADZONE)
@@ -177,12 +194,16 @@ class MainController(object):
             self.last_eye_blink_times.clear()
 
     def run(self):
+        self.key_scan_thread.start()
+
         self.sensor.connect()
         self.sensor.start_acc_capturing()
 
         self.camera.start_capturing()
 
     def stop(self):
+        self.key_scan_thread.join()
+
         self.camera.stop()
 
         self.sensor.stop_acc_capturing()
