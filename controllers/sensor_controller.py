@@ -25,7 +25,7 @@ class SensorController(object):
 
     def acc_preprocessor(self, ctx: None, data) -> None:
         data: CartesianFloat = parse_value(data)
-        logging.debug(f"{self.sensor.address} -> {data}")
+        logging.info(f"{self.sensor.address} -> {data}")
 
         if self.acc_callback:
             self.acc_callback(data.y, data.z)

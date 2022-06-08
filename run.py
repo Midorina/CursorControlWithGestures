@@ -14,7 +14,7 @@ class Runner:
             style='{',
             format='[{asctime}.{msecs:.0f}] [{levelname:<7}] {name}: {message}',
             datefmt='%Y-%m-%d %H:%M:%S',
-            level=logging.DEBUG)
+            level=logging.INFO)
 
     def run(self):
         try:

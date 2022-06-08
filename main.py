@@ -7,12 +7,12 @@ from models import Cursor, Eye
 from utils import TemporaryText
 
 SENSOR_ADDRESS = "FA:49:1B:40:C1:DF"
-SENSOR_DEADZONE = 65
-SENSOR_SENSITIVITY = 7  # 1-1000 (the lower, the slower)
+SENSOR_DEADZONE = 30
+SENSOR_SENSITIVITY = 45  # 1-1000 (the lower, the slower)
 BLINK_SHORT_THRESHOLD_MS = 135  # average blink duration is between 100 and 400 ms
 BLINK_LONG_THRESHOLD_MS = 550
 BLINK_DETECTION_RATIO = 6.5
-EVENT_DETECTION_DURATION_MS = 1000
+EVENT_DETECTION_DURATION_MS = 750
 
 
 class MainController(object):
@@ -56,8 +56,8 @@ class MainController(object):
             y_pos -= self.first_y
 
         # dead-zone check
-        x_pos = 0 if -SENSOR_DEADZONE < x_pos < SENSOR_DEADZONE else x_pos - SENSOR_DEADZONE
-        y_pos = 0 if -SENSOR_DEADZONE < y_pos < SENSOR_DEADZONE else y_pos - SENSOR_DEADZONE
+        x_pos = 0 if -SENSOR_DEADZONE < x_pos < SENSOR_DEADZONE else (x_pos - SENSOR_DEADZONE if x_pos > 0 else x_pos + SENSOR_DEADZONE)
+        y_pos = 0 if -SENSOR_DEADZONE < y_pos < SENSOR_DEADZONE else (y_pos - SENSOR_DEADZONE if y_pos > 0 else y_pos + SENSOR_DEADZONE)
 
         self.cursor.move_in_x_axis(x_pos // (1000 // SENSOR_SENSITIVITY))
         self.cursor.move_in_y_axis(y_pos // (1000 // SENSOR_SENSITIVITY))
@@ -135,13 +135,13 @@ class MainController(object):
                 return
             elif len(self.last_eye_blink_times) == 1:
                 self.cursor.left_click()
-                self.camera.add_temporary_text(TemporaryText("Single blink detected."))
+                self.camera.add_temporary_text(TemporaryText("Single blink"))
             elif len(self.last_eye_blink_times) == 2:
                 self.cursor.double_left_click()
-                self.camera.add_temporary_text(TemporaryText("Double blink detected."))
+                self.camera.add_temporary_text(TemporaryText("Double blink"))
             else:
                 self.cursor.right_click()
-                self.camera.add_temporary_text(TemporaryText("Triple or more blinks detected."))
+                self.camera.add_temporary_text(TemporaryText("Triple or more blinks"))
 
         now = datetime.now()
 
@@ -163,7 +163,7 @@ class MainController(object):
 
             # and (if eyes were closed for long enough and eyes just got opened)
             if before_state == Eye.State.CLOSED and diff_in_ms > BLINK_SHORT_THRESHOLD_MS:
-                logging.debug("Adding blink.")
+                logging.info("Blink detected.")
                 self.last_eye_blink_times.append(now)
                 if not self.execute_action_at:
                     self.execute_action_at = now + timedelta(milliseconds=EVENT_DETECTION_DURATION_MS)

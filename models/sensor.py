@@ -15,7 +15,7 @@ class Sensor(MetaWear):
 
     def connect(self) -> None:
         attempts = 0
-        while attempts < 10:
+        while attempts < 1000:
             try:
                 super(Sensor, self).connect()
 
