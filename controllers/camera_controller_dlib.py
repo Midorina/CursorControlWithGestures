@@ -135,6 +135,7 @@ class CameraControllerDlib:
             cv2.imshow('img', self.img)
 
             # if the user presses q, break
+            # TODO move this to main key detection thread?
             if cv2.waitKey(1) == ord('q'):
                 break
 
